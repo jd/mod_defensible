@@ -1,0 +1,31 @@
+# configure.in for mod_dnsbl2
+# © 2007 Julien Danjou <julien@danjou.info>
+
+AC_INIT(mod_defensible)
+AM_INIT_AUTOMAKE(mod_defensible, 1.0)
+
+AC_CONFIG_SRCDIR(mod_defensible.c) 
+
+AC_PROG_CC
+AM_PROG_LIBTOOL
+
+# check for apxs tool 
+AC_MSG_CHECKING(for APXS tool) 
+AC_ARG_WITH(apxs, 
+        [  --with-apxs=/path/2/apxs path to the apxs command], , 
+        with_apxs=no 
+) 
+if test "${with_apxs}" = no; then 
+        AC_MSG_ERROR(Must specify path to apxs command with --with-apxs) 
+else 
+        if test -x ${with_apxs} 
+        then 
+                AC_MSG_RESULT(using ${with_apxs}) 
+        else 
+                AC_MSG_ERROR(apxs command not found) 
+        fi 
+fi 
+APXS=${with_apxs} 
+AC_SUBST(APXS) 
+
+AC_OUTPUT(Makefile mod_defensible.h) 

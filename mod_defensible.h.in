@@ -1,0 +1,8 @@
+/*
+ * mod_defensible header file
+ *
+ * © 2007 Julien Danjou <julien@danjou.info>
+ *
+ */
+
+#define DEFENSIBLE_VERSION "@VERSION@"
