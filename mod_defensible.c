@@ -73,7 +73,7 @@ static const command_rec defensible_cmds[] =
                   "'On' to use DNSBL"),
     AP_INIT_ITERATE("DnsblServers", set_dnsbl_server, NULL, RSRC_CONF,
                      "DNS suffix to use for lookup"),
-    {NULL}
+    {NULL, NULL, NULL, NULL, RAW_ARGS, NULL}
 };
 
 static void *create_defensible_config(apr_pool_t *p,
@@ -91,7 +91,7 @@ static int check_dnsbl(request_rec *r)
 {
     int i, old_i, j, k = 0; 
     ssize_t len, len_dnsbl;
-    char *host = NULL, *ip = NULL, *hostdnsbl = NULL;
+    char *revip = NULL, *ip = NULL, *hostdnsbl = NULL;
     char **srv_elts;
 
     dnsbl_config *conf = (dnsbl_config *)
@@ -107,12 +107,11 @@ static int check_dnsbl(request_rec *r)
     if (ap_strchr_c(ip, ':'))
        return 0;
 
-
     len = strlen(ip); 
 
     srv_elts = (char **) conf->dnsbl_servers->elts;
 
-    host = (char *) apr_pcalloc(r->pool, sizeof(char) * (len + 1)); 
+    revip  = (char *) apr_pcalloc(r->pool, sizeof(char) * (len + 1)); 
 
     /* reverse IP */
     old_i = len; 
@@ -120,8 +119,8 @@ static int check_dnsbl(request_rec *r)
         if(ip[i] == '.' || i == 0) 
         { 
             for(j = i ? i + 1 : 0; j < old_i; j++) 
-                host[k++] = ip[j]; 
-            host[k++] = '.'; 
+                revip[k++] = ip[j]; 
+            revip[k++] = '.'; 
             old_i = i; 
         }
 
@@ -132,21 +131,18 @@ static int check_dnsbl(request_rec *r)
 
         hostdnsbl = (char *) apr_pcalloc(r->pool, sizeof(char) * (len_dnsbl + len + 2)); 
 
-        if(hostdnsbl)
+        strncpy(hostdnsbl, revip, len);
+        strncat(hostdnsbl, ".", 1);
+        strncat(hostdnsbl, srv_elts[i], len_dnsbl);
+
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+            "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
+
+        if(hostdnsbl && gethostbyname(hostdnsbl))
         {
-            strncpy(hostdnsbl, host, len);
-            strncat(hostdnsbl, ".", 1);
-            strncat(hostdnsbl, srv_elts[i], len_dnsbl);
-
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
-
-            if(hostdnsbl && gethostbyname(hostdnsbl))
-            {
-                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                    "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
-                return 1;
-            }
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
+            return 1;
         }
     }
 
@@ -158,9 +154,7 @@ static int check_dnsbl_access(request_rec *r)
     int ret = OK;
 
     if (check_dnsbl(r))
-    {
         ret = HTTP_FORBIDDEN;
-    }
 
     return ret;
 }
