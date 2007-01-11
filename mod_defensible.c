@@ -19,6 +19,8 @@
  *
  */
 
+#include <config.h>
+
 #include "apr_strings.h"
 
 #include "httpd.h"
@@ -29,6 +31,10 @@
 
 #ifdef HAVE_UDNS
 #include <udns.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <poll.h>
 #else
 #include <netinet/in.h>
 #include <netdb.h>
@@ -37,6 +43,11 @@
 #include "mod_defensible.h"
 
 #define DEFENSIBLE_HEADER_STRING "mod_defensible/" DEFENSIBLE_VERSION
+
+#ifdef HAVE_UDNS
+char * blacklisted_by = NULL;
+int curq = 0;
+#endif
 
 enum use_dnsbl_type
 {
@@ -100,12 +111,25 @@ static void *create_defensible_config(apr_pool_t *p,
     return (void *) conf;
 }
 
+#ifdef HAVE_UDNS
+static void udns_cb(struct dns_ctx *ctx __attribute__ ((unused)),
+                    struct dns_rr_a4 *r,
+                    void *data)
+{
+    if(r)
+        blacklisted_by = (char *) data;
+    curq--;
+
+    return;
+}
+#endif
+
+
 static int check_dnsbl(request_rec *r)
 {
-    int i, old_i, j, k = 0; 
-    ssize_t len, len_dnsbl;
-    char *revip = NULL, *ip = NULL, *hostdnsbl = NULL;
     char **srv_elts;
+    char *ip = NULL;
+    int i;
 
     dnsbl_config *conf = (dnsbl_config *)
         ap_get_module_config(r->per_dir_config, &defensible_module);
@@ -120,13 +144,18 @@ static int check_dnsbl(request_rec *r)
     if (ap_strchr_c(ip, ':'))
        return 0;
 
-    len = strlen(ip); 
-
     srv_elts = (char **) conf->dnsbl_servers->elts;
+
+#ifdef HAVE_UDNS
+    dns_init(1);
+#else
+    int old_i, j, k = 0; 
+    ssize_t len, len_dnsbl;
+    char *revip = NULL, *hostdnsbl = NULL;
+    len = strlen(ip); 
 
     revip  = (char *) apr_pcalloc(r->pool, sizeof(char) * (len + 1)); 
 
-#ifndef HAVE_UDNS
     /* reverse IP */
     old_i = len; 
     for(i = len - 1; i >= 0; i--) 
@@ -142,6 +171,13 @@ static int check_dnsbl(request_rec *r)
     /* check in each dnsbl */
     for(i = 0; i < conf->dnsbl_servers->nelts; i++)
     {
+#ifdef HAVE_UDNS
+        struct in_addr client_addr;
+        inet_aton(ip, &client_addr);
+        dns_submit_a4dnsbl(0, &client_addr, srv_elts[i], udns_cb, srv_elts[i]);
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                      "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
+#else
         len_dnsbl = strlen(srv_elts[i]);
 
         hostdnsbl = (char *) apr_pcalloc(r->pool, sizeof(char) * (len_dnsbl + len + 2)); 
@@ -181,7 +217,33 @@ static int check_dnsbl(request_rec *r)
                     break;
             }
         }
+#endif
     }
+
+#ifdef HAVE_UDNS
+    struct pollfd pfd;
+    pfd.fd = dns_sock(0);
+    pfd.events = POLLIN;
+    while(curq && !blacklisted_by)
+    {
+        dns_timeouts(0, -1, 0);
+        if(poll(&pfd, 1, 1000))
+            dns_ioevent(0, 0);
+    }
+    if(blacklisted_by)
+    {
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                      "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
+        return 1;
+    }
+    else
+    {
+        for(i = 0; i < conf->dnsbl_servers->nelts; i++)
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                          "client not listed on %s",
+                          srv_elts[i]);
+    }
+#endif
 
     return 0;
 }

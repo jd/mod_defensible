@@ -1,4 +1,4 @@
-# configure.in for mod_dnsbl2
+# configure.in for mod_defensible
 # © 2007 Julien Danjou <julien@danjou.info>
 
 AC_INIT(mod_defensible)
@@ -11,8 +11,10 @@ AM_PROG_LIBTOOL
 
 # check for apxs tool 
 AC_MSG_CHECKING(for APXS tool) 
+with_apxs=/usr/bin/apxs2
 AC_ARG_WITH(apxs, 
-        [  --with-apxs=/path/2/apxs path to the apxs command], , 
+        [  --with-apxs=path        path to the apxs command],
+        ,
         with_apxs=no 
 ) 
 if test "${with_apxs}" = no; then 
@@ -28,4 +30,18 @@ fi
 APXS=${with_apxs} 
 AC_SUBST(APXS) 
 
+
+AC_ARG_WITH(udns, 
+        [  --with-udns             use udns library to resolve (better performance)],
+        with_udns=yes, 
+        with_udns=no 
+) 
+if test "${with_udns}" = yes
+then
+     AC_CHECK_LIB([udns], [dns_init],
+         AC_DEFINE_UNQUOTED(HAVE_UDNS, 1, [Defined if udns is available]),
+         AC_MSG_ERROR([udns not found]))
+fi
+
+AC_CONFIG_HEADER(config.h)
 AC_OUTPUT(Makefile mod_defensible.h) 
