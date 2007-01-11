@@ -39,8 +39,10 @@ AC_ARG_WITH(udns,
 if test "${with_udns}" = yes
 then
      AC_CHECK_LIB([udns], [dns_init],
-         AC_DEFINE_UNQUOTED(HAVE_UDNS, 1, [Define to 1 if udns is available]),
+         ,
          AC_MSG_ERROR([udns not found]))
+     AC_DEFINE_UNQUOTED(HAVE_UDNS, 1, [Define to 1 if udns is available])
+     LDFLAGS="$LDFLAGS -ludns"
 fi
 
 AC_CONFIG_HEADER(config.h)
