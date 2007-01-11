@@ -67,7 +67,7 @@ static const char *set_dnsbl_server(cmd_parms *parms,
     return NULL;
 }
 
-static const command_rec dnsbl_cmds[] =
+static const command_rec defensible_cmds[] =
 {
     AP_INIT_TAKE1("DnsblUse", use_dnsbl, NULL, RSRC_CONF,
                   "'On' to use DNSBL"),
@@ -76,7 +76,7 @@ static const command_rec dnsbl_cmds[] =
     {NULL}
 };
 
-static void *create_dnsbl_config(apr_pool_t *p,
+static void *create_defensible_config(apr_pool_t *p,
                                  char *dummy __attribute__ ((unused)))
 {
     dnsbl_config *conf = (dnsbl_config *) apr_pcalloc(p, sizeof(dnsbl_config)); 
@@ -184,10 +184,10 @@ static void register_hooks(apr_pool_t *p __attribute__ ((unused)))
 module AP_MODULE_DECLARE_DATA defensible_module =
 {
     STANDARD20_MODULE_STUFF,
-    create_dnsbl_config,        /* dir config creater */
+    create_defensible_config,        /* dir config creater */
     NULL,                       /* dir merger --- default is to override */
     NULL,                       /* server config */
     NULL,                       /* merge server config */
-    dnsbl_cmds,
+    defensible_cmds,
     register_hooks              /* register hooks */
 };
