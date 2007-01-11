@@ -20,14 +20,7 @@
  */
 
 #include "apr_strings.h"
-#include "apr_network_io.h"
-#include "apr_md5.h"
 
-#define APR_WANT_STRFUNC
-#define APR_WANT_BYTEFUNC
-#include "apr_want.h"
-
-#include "ap_config.h"
 #include "httpd.h"
 #include "http_core.h"
 #include "http_config.h"
