@@ -27,8 +27,12 @@
 #include "http_log.h"
 #include "http_request.h"
 
+#ifdef HAVE_UDNS
+#include <udns.h>
+#else
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
 
 #include "mod_defensible.h"
 
@@ -82,7 +86,7 @@ static const command_rec defensible_cmds[] =
                   "'On' to use DNSBL"),
     AP_INIT_ITERATE("DnsblServers", set_dnsbl_server, NULL, RSRC_CONF,
                      "DNS suffix to use for lookup"),
-    {NULL, NULL, NULL, NULL, RAW_ARGS, NULL}
+    {NULL, {NULL}, NULL, 0, RAW_ARGS, NULL}
 };
 
 static void *create_defensible_config(apr_pool_t *p,
@@ -122,6 +126,7 @@ static int check_dnsbl(request_rec *r)
 
     revip  = (char *) apr_pcalloc(r->pool, sizeof(char) * (len + 1)); 
 
+#ifndef HAVE_UDNS
     /* reverse IP */
     old_i = len; 
     for(i = len - 1; i >= 0; i--) 
@@ -132,6 +137,7 @@ static int check_dnsbl(request_rec *r)
             revip[k++] = '.'; 
             old_i = i; 
         }
+#endif
 
     /* check in each dnsbl */
     for(i = 0; i < conf->dnsbl_servers->nelts; i++)
@@ -145,13 +151,35 @@ static int check_dnsbl(request_rec *r)
         strncat(hostdnsbl, srv_elts[i], len_dnsbl);
 
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-            "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
+                      "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
 
         if(gethostbyname(hostdnsbl))
         {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
+                          "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
             return 1;
+        }
+        else
+        {
+            switch(h_errno)
+            {
+                case HOST_NOT_FOUND:
+                case NO_ADDRESS:
+                    ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                                  "client not listed on %s",
+                                  srv_elts[i]);
+                    break;
+                case NO_RECOVERY:
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                                  "non-recoverable DNS error while checking DNSBL on %s for %s",
+                                  srv_elts[i], r->uri);
+                    break;
+                case TRY_AGAIN:
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                                  "temporary DNS error while checking DNSBL on %s for %s",
+                                  srv_elts[i], r->uri);
+                    break;
+            }
         }
     }
 
@@ -187,7 +215,7 @@ static void register_hooks(apr_pool_t *p __attribute__ ((unused)))
 module AP_MODULE_DECLARE_DATA defensible_module =
 {
     STANDARD20_MODULE_STUFF,
-    create_defensible_config,        /* dir config creater */
+    create_defensible_config,   /* dir config creater */
     NULL,                       /* dir merger --- default is to override */
     NULL,                       /* server config */
     NULL,                       /* merge server config */
