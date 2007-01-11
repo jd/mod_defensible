@@ -27,12 +27,14 @@
 
 #define DEFENSIBLE_HEADER_STRING "mod_defensible/" DEFENSIBLE_VERSION
 
-enum use_dnsbl_type {
+enum use_dnsbl_type
+{
     T_YES,
     T_NO
 };
 
-typedef struct {
+typedef struct
+{
     enum use_dnsbl_type use_dnsbl;
     apr_array_header_t *dnsbl_servers;
 } dnsbl_config;
@@ -138,7 +140,7 @@ static int check_dnsbl(request_rec *r)
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
             "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
 
-        if(hostdnsbl && gethostbyname(hostdnsbl))
+        if(gethostbyname(hostdnsbl))
         {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
                 "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
