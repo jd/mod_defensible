@@ -216,6 +216,7 @@ static int check_dnsbl(request_rec *r)
         /* Copy connection_req and our DNSBL server in data */
         data->r = r;
         data->dnsbl = srv_elts[i];
+        data->blacklist = 0;
 
         /* Finally push data in our array */
         tmp = (struct udns_cb_data **) apr_array_push(data_array);
