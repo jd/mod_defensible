@@ -44,11 +44,6 @@
 
 #define DEFENSIBLE_HEADER_STRING "mod_defensible/" DEFENSIBLE_VERSION
 
-#ifdef HAVE_UDNS
-int blacklisted;
-int curq = 0;
-#endif
-
 /* enum used for config */
 enum use_dnsbl_type
 {
@@ -128,6 +123,7 @@ struct udns_cb_data
 {
     request_rec *r;
     char * dnsbl;
+    int blacklist;
 };
 
 /* udns callback function used for each query resolution */
@@ -144,7 +140,7 @@ static void udns_cb(struct dns_ctx *ctx __attribute__ ((unused)),
                       "client denied by DNSBL: %s for: %s",
                       info->dnsbl, info->r->uri);
         free(r);
-        blacklisted++;
+        info->blacklist = 1;
     }
     else
     {
@@ -152,7 +148,6 @@ static void udns_cb(struct dns_ctx *ctx __attribute__ ((unused)),
                       "client not listed on %s",
                       info->dnsbl);
     }
-    curq--;
 
     return;
 }
@@ -181,6 +176,9 @@ static int check_dnsbl(request_rec *r)
     srv_elts = (char **) conf->dnsbl_servers->elts;
 
 #ifdef HAVE_UDNS
+    apr_array_header_t *data_array;
+    data_array = apr_array_make(r->pool, 1, sizeof(struct udns_cb_data *)); 
+
     /* Initialize udns lib */
     dns_init(1);
 #else
@@ -208,15 +206,17 @@ static int check_dnsbl(request_rec *r)
     {
 #ifdef HAVE_UDNS
         struct in_addr client_addr;
-        struct udns_cb_data *data;
+        struct udns_cb_data *data, **tmp;
+
         data = (struct udns_cb_data *) apr_pcalloc (r->pool, sizeof(struct udns_cb_data));
         data->r = r;
         data->dnsbl = srv_elts[i];
+        tmp = (struct udns_cb_data **) apr_array_push(data_array);
+        *tmp = data;
+
         inet_aton(ip, &client_addr);
         /* Submit a DNSBL query to udns */
         dns_submit_a4dnsbl(0, &client_addr, srv_elts[i], udns_cb, data);
-        /* Increment queue */
-        curq++;
 
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                       "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
@@ -271,18 +271,25 @@ static int check_dnsbl(request_rec *r)
 
 #ifdef HAVE_UDNS
     struct pollfd pfd;
+    struct udns_cb_data **data_array_elts;
+
     pfd.fd = dns_sock(0);
     pfd.events = POLLIN;
+
+    data_array_elts = data_array->elts;
+
     /* While we have a queue active */
-    while(curq && dns_active(&dns_defctx))
+    while(dns_active(&dns_defctx))
         if(poll(&pfd, 1, dns_timeouts(0, -1, 0) * 1000))
             dns_ioevent(0, 0);
 
     dns_close(&dns_defctx);
     dns_free(&dns_defctx);
 
-    if(blacklisted)
-        return 1;
+    /* Check if one of the DNSBL server has blacklisted */
+    for(i = 0; i < data_array->nelts; i++)
+        if(data_array_elts[i]->blacklist)
+            return 1;
 #endif
 
     return 0;
