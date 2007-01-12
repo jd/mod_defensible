@@ -70,7 +70,12 @@ static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
     dnsbl_config *s_cfg = (dnsbl_config *) mconfig;
 
     if(!strcasecmp(arg, "On"))
+    {
         s_cfg->use_dnsbl = T_YES;
+#ifdef HAVE_UDNS
+        dns_init(0);
+#endif
+    }
     else
         s_cfg->use_dnsbl = T_NO;
 
@@ -117,7 +122,10 @@ static void udns_cb(struct dns_ctx *ctx __attribute__ ((unused)),
                     void *data)
 {
     if(r)
+    {
         blacklisted_by = (char *) data;
+        free(r);
+    }
     curq--;
 
     return;
@@ -147,7 +155,7 @@ static int check_dnsbl(request_rec *r)
     srv_elts = (char **) conf->dnsbl_servers->elts;
 
 #ifdef HAVE_UDNS
-    dns_init(1);
+    dns_open(&dns_defctx);
 #else
     int old_i, j, k = 0; 
     ssize_t len, len_dnsbl;
@@ -230,6 +238,9 @@ static int check_dnsbl(request_rec *r)
         if(poll(&pfd, 1, 1000))
             dns_ioevent(0, 0);
     }
+    
+    dns_close(&dns_defctx);
+
     if(blacklisted_by)
     {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
