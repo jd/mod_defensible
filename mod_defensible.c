@@ -45,16 +45,22 @@
 #define DEFENSIBLE_HEADER_STRING "mod_defensible/" DEFENSIBLE_VERSION
 
 #ifdef HAVE_UDNS
-char * blacklisted_by = NULL;
+int blacklisted;
 int curq = 0;
 #endif
 
+/* enum used for config */
 enum use_dnsbl_type
 {
     T_YES,
     T_NO
 };
 
+/*
+ * module configuration structure
+ * use_dnsbl is T_YES or T_NO if we use it or not
+ * dnsbl_servers is an array containing DNSBL servers
+ */
 typedef struct
 {
     enum use_dnsbl_type use_dnsbl;
@@ -63,6 +69,7 @@ typedef struct
 
 module AP_MODULE_DECLARE_DATA defensible_module;
 
+/* Callback function called when we get DnsblUse option */
 static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
                              void *mconfig,
                              const char *arg)
@@ -73,6 +80,7 @@ static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
     {
         s_cfg->use_dnsbl = T_YES;
 #ifdef HAVE_UDNS
+        /* Initialize udns lib */
         dns_init(0);
 #endif
     }
@@ -82,6 +90,7 @@ static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
     return NULL;
 }
 
+/* Callback function called when we get DnsblServers option */
 static const char *set_dnsbl_server(cmd_parms *parms,
                                     void *mconfig,
                                     const char *server_o)
@@ -90,12 +99,14 @@ static const char *set_dnsbl_server(cmd_parms *parms,
     char ** cfg;
     dnsbl_config *s_cfg = (dnsbl_config *) mconfig;
 
+    /* We add the DNSBL server to the array */
     cfg = (char **) apr_array_push(s_cfg->dnsbl_servers);
     *cfg = server;
 
     return NULL;
 }
 
+/* Configuration directive declaration for our module */
 static const command_rec defensible_cmds[] =
 {
     AP_INIT_TAKE1("DnsblUse", use_dnsbl, NULL, RSRC_CONF,
@@ -105,6 +116,7 @@ static const command_rec defensible_cmds[] =
     {NULL, {NULL}, NULL, 0, RAW_ARGS, NULL}
 };
 
+/* Create initial configuration */
 static void *create_defensible_config(apr_pool_t *p,
                                  char *dummy __attribute__ ((unused)))
 {
@@ -117,14 +129,34 @@ static void *create_defensible_config(apr_pool_t *p,
 }
 
 #ifdef HAVE_UDNS
+/* Struct used as data for the udns callback function */
+struct udns_cb_data
+{
+    request_rec *r;
+    char * dnsbl;
+};
+
+/* udns callback function used for each query resolution */
 static void udns_cb(struct dns_ctx *ctx __attribute__ ((unused)),
                     struct dns_rr_a4 *r,
                     void *data)
 {
+    struct udns_cb_data * info = (struct udns_cb_data *) data;
+
+    /* If we get a record */
     if(r)
     {
-        blacklisted_by = (char *) data;
+        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, info->r,
+                      "client denied by DNSBL: %s for: %s",
+                      info->dnsbl, info->r->uri);
         free(r);
+        blacklisted++;
+    }
+    else
+    {
+        ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, info->r,
+                      "client not listed on %s",
+                      info->dnsbl);
     }
     curq--;
 
@@ -164,7 +196,7 @@ static int check_dnsbl(request_rec *r)
 
     revip  = (char *) apr_pcalloc(r->pool, sizeof(char) * (len + 1)); 
 
-    /* reverse IP */
+    /* reverse IP from a.b.c.d to d.c.b.a */
     old_i = len; 
     for(i = len - 1; i >= 0; i--) 
         if(ip[i] == '.' || i == 0) 
@@ -181,11 +213,23 @@ static int check_dnsbl(request_rec *r)
     {
 #ifdef HAVE_UDNS
         struct in_addr client_addr;
+        struct udns_cb_data *data;
+        data = (struct udns_cb_data *) apr_pcalloc (r->pool, sizeof(struct udns_cb_data));
+        data->r = r;
+        data->dnsbl = srv_elts[i];
         inet_aton(ip, &client_addr);
-        dns_submit_a4dnsbl(0, &client_addr, srv_elts[i], udns_cb, srv_elts[i]);
+        /* Submit a DNSBL query to udns */
+        dns_submit_a4dnsbl(0, &client_addr, srv_elts[i], udns_cb, data);
+        /* Increment queue */
+        curq++;
+
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                       "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
 #else
+        /* 
+         * Here we build the host to lookup:
+         * revip.dnsblserver
+         */
         len_dnsbl = strlen(srv_elts[i]);
 
         hostdnsbl = (char *) apr_pcalloc(r->pool, sizeof(char) * (len_dnsbl + len + 2)); 
@@ -197,6 +241,7 @@ static int check_dnsbl(request_rec *r)
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                       "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
 
+        /* If it resolve, the IP is blacklisted */
         if(gethostbyname(hostdnsbl))
         {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
@@ -205,6 +250,7 @@ static int check_dnsbl(request_rec *r)
         }
         else
         {
+            /* Log some interesting stuff if we don't have any record */
             switch(h_errno)
             {
                 case HOST_NOT_FOUND:
@@ -232,33 +278,21 @@ static int check_dnsbl(request_rec *r)
     struct pollfd pfd;
     pfd.fd = dns_sock(0);
     pfd.events = POLLIN;
-    while(curq && !blacklisted_by)
-    {
-        dns_timeouts(0, -1, 0);
-        if(poll(&pfd, 1, 1000))
+    /* While we have a queue active */
+    while(curq && dns_active(&dns_defctx))
+        if(poll(&pfd, 1, dns_timeouts(0, -1, 0) * 1000))
             dns_ioevent(0, 0);
-    }
-    
+
     dns_close(&dns_defctx);
 
-    if(blacklisted_by)
-    {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                      "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
+    if(blacklisted)
         return 1;
-    }
-    else
-    {
-        for(i = 0; i < conf->dnsbl_servers->nelts; i++)
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
-                          "client not listed on %s",
-                          srv_elts[i]);
-    }
 #endif
 
     return 0;
 }
 
+/* Callback function called on each HTTP request */
 static int check_dnsbl_access(request_rec *r)
 {
     int ret = OK;
@@ -269,6 +303,7 @@ static int check_dnsbl_access(request_rec *r)
     return ret;
 }
 
+/* Callback function used for initialization */
 static int defensible_init(apr_pool_t *p,
                        apr_pool_t *plog __attribute__ ((unused)),
                        apr_pool_t *ptemp __attribute__ ((unused)),
@@ -279,12 +314,14 @@ static int defensible_init(apr_pool_t *p,
     return OK;
 }
 
+/* Register hooks */
 static void register_hooks(apr_pool_t *p __attribute__ ((unused)))
 {
     ap_hook_access_checker(check_dnsbl_access, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_post_config(defensible_init, NULL, NULL, APR_HOOK_LAST);
 }
 
+/* Declare our module to apache2 */
 module AP_MODULE_DECLARE_DATA defensible_module =
 {
     STANDARD20_MODULE_STUFF,
