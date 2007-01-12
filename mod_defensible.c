@@ -128,7 +128,7 @@ struct udns_cb_data
     int blacklist;
 };
 
-/* udns callback function used for each query resolution */
+/* udns callback function called by udns after each query resolution */
 static void udns_cb(struct dns_ctx *ctx __attribute__ ((unused)),
                     struct dns_rr_a4 *r,
                     void *data)
@@ -287,7 +287,7 @@ static int check_dnsbl(request_rec *r)
     pfd.fd = dns_sock(0);
     pfd.events = POLLIN;
 
-    data_array_elts = data_array->elts;
+    data_array_elts = (struct udns_cb_data **) data_array->elts;
 
     /* While we have a queue active */
     while(dns_active(&dns_defctx))
