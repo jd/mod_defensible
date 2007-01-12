@@ -1,13 +1,22 @@
 mod_defensible
 --------------
 
+    « Together, we can win against spammers! »
+    « Oh, my God, you're making rime! »
+
+
 mod_defensible is Apache 2.x module aiming to forbid IP listed
 in DNSBL.
 
-It will do DNS lookup to DNSBL you want and will return a 403 Forbidden
+It will do DNS lookups to DNSBL you want and will return a 403 Forbidden
 error code to the client.
 
 Configuration example:
 
 DnsblUse On
 DnsblServers bsb.spamlookup.net bl.blbl.org opm.blitzed.org sbl-xbl.spamhaus.org
+
+
+  But why mod_defensible?
+  Because:    ^   ^^ ^^
+              d   ns bl
