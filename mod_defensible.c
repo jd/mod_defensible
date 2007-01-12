@@ -77,13 +77,7 @@ static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
     dnsbl_config *s_cfg = (dnsbl_config *) mconfig;
 
     if(!strcasecmp(arg, "On"))
-    {
         s_cfg->use_dnsbl = T_YES;
-#ifdef HAVE_UDNS
-        /* Initialize udns lib */
-        dns_init(0);
-#endif
-    }
     else
         s_cfg->use_dnsbl = T_NO;
 
@@ -187,7 +181,8 @@ static int check_dnsbl(request_rec *r)
     srv_elts = (char **) conf->dnsbl_servers->elts;
 
 #ifdef HAVE_UDNS
-    dns_open(&dns_defctx);
+    /* Initialize udns lib */
+    dns_init(1);
 #else
     int old_i, j, k = 0; 
     ssize_t len, len_dnsbl;
@@ -284,6 +279,7 @@ static int check_dnsbl(request_rec *r)
             dns_ioevent(0, 0);
 
     dns_close(&dns_defctx);
+    dns_free(&dns_defctx);
 
     if(blacklisted)
         return 1;
