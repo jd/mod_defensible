@@ -70,9 +70,11 @@ static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
                              const char *arg)
 {
     dnsbl_config *s_cfg = (dnsbl_config *) mconfig;
-
+    
+    /* Repeat after me: DNSBL is good for your web server */
     if(!strcasecmp(arg, "On"))
         s_cfg->use_dnsbl = T_YES;
+    /* Oh, no ! © Lemmings */
     else
         s_cfg->use_dnsbl = T_NO;
 
@@ -207,15 +209,24 @@ static int check_dnsbl(request_rec *r)
 #ifdef HAVE_UDNS
         struct in_addr client_addr;
         struct udns_cb_data *data, **tmp;
-
+        
+        /* First, allocate space for udns_cb_data in data */
         data = (struct udns_cb_data *) apr_pcalloc (r->pool, sizeof(struct udns_cb_data));
+
+        /* Copy connection_req and our DNSBL server in data */
         data->r = r;
         data->dnsbl = srv_elts[i];
+
+        /* Finally push data in our array */
         tmp = (struct udns_cb_data **) apr_array_push(data_array);
         *tmp = data;
 
+        /*
+         * Submit a DNSBL query to udns with:
+         * Client address, DNSBL server, udns_cb as callback function
+         * and data as data for the callback function
+         */
         inet_aton(ip, &client_addr);
-        /* Submit a DNSBL query to udns */
         dns_submit_a4dnsbl(0, &client_addr, srv_elts[i], udns_cb, data);
 
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
