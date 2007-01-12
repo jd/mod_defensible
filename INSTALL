@@ -1,0 +1,13 @@
+Installation Instructions
+*************************
+
+Just run ./configure. You can specify several useful options like:
+
+  --with-apxs=path_to_apxs
+    To specify the path to the apxs2 binary (/usr/bin/apxs2 is default).
+
+  --with-udns
+    To compile mod_defensible with udns support (better performance).
+    This options needs libudns.
+
+Then, type make and make install as root.
