@@ -164,7 +164,7 @@ static void udns_cb(struct dns_ctx *ctx __attribute__ ((unused)),
 }
 #endif
 
-
+/* Check an IP in a DNSBL */
 static int check_dnsbl(request_rec *r)
 {
     char **srv_elts;
