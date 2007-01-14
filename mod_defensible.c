@@ -86,13 +86,13 @@ static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
 
 #ifdef HAVE_UDNS
 /* Callback function called when we get DnsblNameserver option */
-static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
+static const char *set_dnsbl_nameserver(cmd_parms *parms,
                              void *mconfig,
                              const char *arg)
 {
     dnsbl_config *s_cfg = (dnsbl_config *) mconfig;
     
-    s_cfg->nameserver = ap_pstrdup(arg);
+    s_cfg->nameserver = apr_pstrdup(parms->pool, arg);
 
     return NULL;
 }
@@ -211,7 +211,7 @@ static int check_dnsbl(request_rec *r)
 
     /* Add configured nameserver if available */
     if(conf->nameserver)
-        dns_add_serv(&dns_defctx);
+        dns_add_serv(&dns_defctx, conf->nameserver);
 
     dns_open(&dns_defctx);
 #else
