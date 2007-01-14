@@ -60,6 +60,9 @@ typedef struct
 {
     enum use_dnsbl_type use_dnsbl;
     apr_array_header_t *dnsbl_servers;
+#ifdef HAVE_UDNS
+    char * nameserver;
+#endif
 } dnsbl_config;
 
 module AP_MODULE_DECLARE_DATA defensible_module;
@@ -81,6 +84,20 @@ static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
     return NULL;
 }
 
+#ifdef HAVE_UDNS
+/* Callback function called when we get DnsblNameserver option */
+static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
+                             void *mconfig,
+                             const char *arg)
+{
+    dnsbl_config *s_cfg = (dnsbl_config *) mconfig;
+    
+    s_cfg->nameserver = ap_pstrdup(arg);
+
+    return NULL;
+}
+#endif
+
 /* Callback function called when we get DnsblServers option */
 static const char *set_dnsbl_server(cmd_parms *parms,
                                     void *mconfig,
@@ -101,9 +118,13 @@ static const char *set_dnsbl_server(cmd_parms *parms,
 static const command_rec defensible_cmds[] =
 {
     AP_INIT_TAKE1("DnsblUse", use_dnsbl, NULL, RSRC_CONF,
-                  "'On' to use DNSBL"),
+                  "Set to 'On' to use DNSBL"),
     AP_INIT_ITERATE("DnsblServers", set_dnsbl_server, NULL, RSRC_CONF,
-                     "DNS suffix to use for lookup"),
+                     "DNS suffix to use for lookup in DNSBL server"),
+#ifdef HAVE_UDNS
+    AP_INIT_TAKE1("DnsblNameserver", set_dnsbl_nameserver, NULL, RSRC_CONF,
+                  "IP address of the nameserver to use for DNSBL lookup"),
+#endif
     {NULL, {NULL}, NULL, 0, RAW_ARGS, NULL}
 };
 
@@ -115,6 +136,10 @@ static void *create_defensible_config(apr_pool_t *p,
 
     conf->use_dnsbl = T_NO;
     conf->dnsbl_servers = apr_array_make(p, 1, sizeof(char *)); 
+
+#ifdef HAVE_UDNS
+    conf->nameserver = NULL;
+#endif
 
     return (void *) conf;
 }
@@ -182,7 +207,13 @@ static int check_dnsbl(request_rec *r)
     data_array = apr_array_make(r->pool, 1, sizeof(struct udns_cb_data *)); 
 
     /* Initialize udns lib */
-    dns_init(1);
+    dns_init(0);
+
+    /* Add configured nameserver if available */
+    if(conf->nameserver)
+        dns_add_serv(&dns_defctx);
+
+    dns_open(&dns_defctx);
 #else
     int old_i, j, k = 0; 
     ssize_t len, len_dnsbl;

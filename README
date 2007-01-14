@@ -16,6 +16,9 @@ Configuration example:
 DnsblUse On
 DnsblServers bsb.spamlookup.net bl.blbl.org opm.blitzed.org sbl-xbl.spamhaus.org
 
+If compiled with udns support, you can use a special nameserver with:
+DnsblNameserver 127.0.0.1
+
 
   But why mod_defensible?
   Because:    ^   ^^ ^^
