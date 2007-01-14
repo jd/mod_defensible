@@ -207,13 +207,28 @@ static int check_dnsbl(request_rec *r)
     data_array = apr_array_make(r->pool, 1, sizeof(struct udns_cb_data *)); 
 
     /* Initialize udns lib */
-    dns_init(0);
+    if(dns_init(0) < 0)
+    {
+        ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
+                      "error initializing udns library for DNSBL, can't check client");
+        return 0;
+    }
 
     /* Add configured nameserver if available */
     if(conf->nameserver)
-        dns_add_serv(&dns_defctx, conf->nameserver);
+        if(dns_add_serv(&dns_defctx, conf->nameserver) < 0)
+        {
+            ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
+                          "error adding DNSBL nameserver, can't check client");
+            return 0;
+        }
 
-    dns_open(&dns_defctx);
+    if(dns_open(&dns_defctx) < 0)
+    {
+        ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
+                      "error open connection from udns library for DNSBL, can't check client");
+        return 0;
+    }
 #else
     int old_i, j, k = 0; 
     ssize_t len, len_dnsbl;
