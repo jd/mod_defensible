@@ -216,6 +216,7 @@ static int check_dnsbl(request_rec *r)
 
     /* Add configured nameserver if available */
     if(conf->nameserver)
+        dns_add_serv(&dns_defctx, NULL);
         if(dns_add_serv(&dns_defctx, conf->nameserver) < 0)
         {
             ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
