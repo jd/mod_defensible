@@ -25,6 +25,7 @@
 
 #include "httpd.h"
 #include "http_core.h"
+#include "http_protocol.h"
 #include "http_config.h"
 #include "http_log.h"
 #include "http_request.h"
@@ -180,6 +181,18 @@ static void udns_cb(struct dns_ctx *ctx __attribute__ ((unused)),
 }
 #endif
 
+static void generate_page(request_rec *r, char * dnsbl)
+{
+    ap_set_content_type(r, "text/html"); 
+    ap_rputs(DOCTYPE_HTML_2_0, r);
+    ap_rputs("<html><head>\n<title>403 Forbidden</title></head><body><h1>Forbidden</h1>\n", r);
+    ap_rprintf(r, "<p>You don't have permission to access %s\n", ap_escape_html(r->pool, r->uri));
+    ap_rprintf(r, "on this server because you are currently blacklisted by a DNSBL server at: <b>%s</b></p>\n", dnsbl);
+    ap_rputs("<hr>\n", r);
+    ap_rprintf(r, "<address>%s</address>\n", ap_get_server_version());
+    ap_rputs("</body></html>\n", r);
+}
+
 /* Check an IP in a DNSBL */
 static int check_dnsbl(request_rec *r)
 {
@@ -300,6 +313,7 @@ static int check_dnsbl(request_rec *r)
         {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
                           "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
+            generate_page(r, srv_elts[i]);
             return 1;
         }
         else
@@ -348,7 +362,10 @@ static int check_dnsbl(request_rec *r)
     /* Check if one of the DNSBL server has blacklisted */
     for(i = 0; i < data_array->nelts; i++)
         if(data_array_elts[i]->blacklist)
+        {
+            generate_page(r, data_array_elts[i]->dnsbl);
             return 1;
+        }
 #endif
 
     return 0;
@@ -357,12 +374,13 @@ static int check_dnsbl(request_rec *r)
 /* Callback function called on each HTTP request */
 static int check_dnsbl_access(request_rec *r)
 {
-    int ret = OK;
-
     if (check_dnsbl(r))
-        ret = HTTP_FORBIDDEN;
+    {
+       r->status = 403;
+       return DONE;
+    }
 
-    return ret;
+    return OK;
 }
 
 /* Callback function used for initialization */

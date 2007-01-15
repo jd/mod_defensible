@@ -1,2 +1,5 @@
+1.1 -- Mon, 15 Jan 2007 17:52:07 +0100
+    * Return a custom and informative page on Forbidden
+
 1.0 -- Thu, 11 Jan 2007 18:46:49 +0100
     * Initial release

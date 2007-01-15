@@ -2,7 +2,7 @@
 # © 2007 Julien Danjou <julien@danjou.info>
 
 AC_INIT(mod_defensible)
-AM_INIT_AUTOMAKE(mod_defensible, 1.0)
+AM_INIT_AUTOMAKE(mod_defensible, 1.1)
 
 AC_CONFIG_SRCDIR(mod_defensible.c) 
 
