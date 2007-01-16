@@ -193,11 +193,14 @@ static void generate_page(request_rec *r, char * dnsbl)
     ap_rputs("</body></html>\n", r);
 }
 
-/* Check an IP in a DNSBL */
-static int check_dnsbl(request_rec *r)
+/* 
+ * Callback function called on each HTTP request
+ * Check an IP in a DNSBL
+ */
+static int check_dnsbl_access(request_rec *r)
 {
     char **srv_elts;
-    char *ip = NULL;
+    char *ip = r->connection->remote_ip;
     int i;
 
     dnsbl_config *conf = (dnsbl_config *)
@@ -205,13 +208,11 @@ static int check_dnsbl(request_rec *r)
 
     /* Return right now if we don't use DNSBL */
     if(conf->use_dnsbl == T_NO)
-        return 0;
-
-    ip = r->connection->remote_ip;
+        return DECLINED;
 
     /* Return if IPv6 client */
     if (ap_strchr_c(ip, ':'))
-       return 0;
+       return DECLINED;
 
     srv_elts = (char **) conf->dnsbl_servers->elts;
 
@@ -224,7 +225,7 @@ static int check_dnsbl(request_rec *r)
     {
         ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
                       "error initializing udns library for DNSBL, can't check client");
-        return 0;
+        return DECLINED;
     }
 
     /* Add configured nameserver if available */
@@ -234,14 +235,14 @@ static int check_dnsbl(request_rec *r)
         {
             ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
                           "error adding DNSBL nameserver, can't check client");
-            return 0;
+            return DECLINED;
         }
 
     if(dns_open(&dns_defctx) < 0)
     {
         ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
                       "error open connection from udns library for DNSBL, can't check client");
-        return 0;
+        return DECLINED;
     }
 #else
     int old_i, j, k = 0; 
@@ -288,7 +289,7 @@ static int check_dnsbl(request_rec *r)
          * and data as data for the callback function
          */
         inet_aton(ip, &client_addr);
-        dns_submit_a4dnsbl(0, &client_addr, srv_elts[i], udns_cb, data);
+        dns_submit_a4dnsbl(&dns_defctx, &client_addr, srv_elts[i], udns_cb, data);
 
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                       "looking up in DNSBL: %s for: %s", srv_elts[i], r->uri);
@@ -313,8 +314,9 @@ static int check_dnsbl(request_rec *r)
         {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
                           "denied by DNSBL: %s for: %s", srv_elts[i], r->uri);
+            r->status = 403;
             generate_page(r, srv_elts[i]);
-            return 1;
+            return DONE;
         }
         else
         {
@@ -363,22 +365,11 @@ static int check_dnsbl(request_rec *r)
     for(i = 0; i < data_array->nelts; i++)
         if(data_array_elts[i]->blacklist)
         {
+            r->status = 403;
             generate_page(r, data_array_elts[i]->dnsbl);
-            return 1;
+            return DONE;
         }
 #endif
-
-    return 0;
-}
-
-/* Callback function called on each HTTP request */
-static int check_dnsbl_access(request_rec *r)
-{
-    if (check_dnsbl(r))
-    {
-       r->status = 403;
-       return DONE;
-    }
 
     return OK;
 }
