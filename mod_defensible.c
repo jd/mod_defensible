@@ -41,9 +41,7 @@
 #include <netdb.h>
 #endif
 
-#include "mod_defensible.h"
-
-#define DEFENSIBLE_HEADER_STRING "mod_defensible/" DEFENSIBLE_VERSION
+#define DEFENSIBLE_HEADER_STRING "mod_defensible/" VERSION
 
 /* enum used for config */
 enum use_dnsbl_type

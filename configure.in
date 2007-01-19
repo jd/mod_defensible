@@ -2,7 +2,7 @@
 # © 2007 Julien Danjou <julien@danjou.info>
 
 AC_INIT(mod_defensible)
-AM_INIT_AUTOMAKE(mod_defensible, 1.1)
+AM_INIT_AUTOMAKE(mod_defensible, 1.2)
 
 AC_CONFIG_SRCDIR(mod_defensible.c) 
 
@@ -17,11 +17,9 @@ AC_ARG_WITH(udns,
         [AC_CHECK_LIB([udns], [dns_init],
             ,
             AC_MSG_ERROR([udns not found]))
-        UDNS_LIBS="-ludns"
         ],
-        UDNS_LIBS=""
 )
 AC_SUBST(UDNS_LIBS)
 
 AC_CONFIG_HEADER(config.h)
-AC_OUTPUT(Makefile mod_defensible.h) 
+AC_OUTPUT(Makefile)
