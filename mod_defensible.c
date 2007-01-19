@@ -30,7 +30,7 @@
 #include "http_log.h"
 #include "http_request.h"
 
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
 #include <udns.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -61,7 +61,7 @@ typedef struct
 {
     enum use_dnsbl_type use_dnsbl;
     apr_array_header_t *dnsbl_servers;
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
     char * nameserver;
 #endif
 } dnsbl_config;
@@ -85,7 +85,7 @@ static const char *use_dnsbl(cmd_parms *parms __attribute__ ((unused)),
     return NULL;
 }
 
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
 /* Callback function called when we get DnsblNameserver option */
 static const char *set_dnsbl_nameserver(cmd_parms *parms,
                              void *mconfig,
@@ -122,7 +122,7 @@ static const command_rec defensible_cmds[] =
                   "Set to 'On' to use DNSBL"),
     AP_INIT_ITERATE("DnsblServers", set_dnsbl_server, NULL, RSRC_CONF,
                      "DNS suffix to use for lookup in DNSBL server"),
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
     AP_INIT_TAKE1("DnsblNameserver", set_dnsbl_nameserver, NULL, RSRC_CONF,
                   "IP address of the nameserver to use for DNSBL lookup"),
 #endif
@@ -138,14 +138,14 @@ static void *create_defensible_config(apr_pool_t *p,
     conf->use_dnsbl = T_NO;
     conf->dnsbl_servers = apr_array_make(p, 1, sizeof(char *)); 
 
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
     conf->nameserver = NULL;
 #endif
 
     return (void *) conf;
 }
 
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
 /* Struct used as data for the udns callback function */
 struct udns_cb_data
 {
@@ -216,7 +216,7 @@ static int check_dnsbl_access(request_rec *r)
 
     srv_elts = (char **) conf->dnsbl_servers->elts;
 
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
     apr_array_header_t *data_array;
     data_array = apr_array_make(r->pool, 1, sizeof(struct udns_cb_data *)); 
 
@@ -267,7 +267,7 @@ static int check_dnsbl_access(request_rec *r)
     /* check in each dnsbl */
     for(i = 0; i < conf->dnsbl_servers->nelts; i++)
     {
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
         struct in_addr client_addr;
         struct udns_cb_data *data, **tmp;
         
@@ -344,7 +344,7 @@ static int check_dnsbl_access(request_rec *r)
 #endif
     }
 
-#ifdef HAVE_UDNS
+#ifdef HAVE_LIBUDNS
     struct pollfd pfd;
     struct udns_cb_data **data_array_elts;
 

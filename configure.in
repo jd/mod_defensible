@@ -12,19 +12,16 @@ AM_PROG_LIBTOOL
 # check for apxs tool 
 AC_PATH_PROG(APXS2, [apxs2])
 
-AC_ARG_WITH(udns, 
+AC_ARG_WITH(udns,
         [  --with-udns             use udns library to resolve (better performance)],
-        with_udns=yes, 
-        with_udns=no 
-) 
-if test "${with_udns}" = yes
-then
-     AC_CHECK_LIB([udns], [dns_init],
-         ,
-         AC_MSG_ERROR([udns not found]))
-     AC_DEFINE_UNQUOTED(HAVE_UDNS, 1, [Define to 1 if udns is available])
-fi
-AC_SUBST(UDNS_LIBS, [-ludns])
+        [AC_CHECK_LIB([udns], [dns_init],
+            ,
+            AC_MSG_ERROR([udns not found]))
+        UDNS_LIBS="-ludns"
+        ],
+        UDNS_LIBS=""
+)
+AC_SUBST(UDNS_LIBS)
 
 AC_CONFIG_HEADER(config.h)
 AC_OUTPUT(Makefile mod_defensible.h) 
