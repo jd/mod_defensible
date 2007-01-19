@@ -23,8 +23,8 @@ then
          ,
          AC_MSG_ERROR([udns not found]))
      AC_DEFINE_UNQUOTED(HAVE_UDNS, 1, [Define to 1 if udns is available])
-     LDFLAGS="$LDFLAGS -ludns"
 fi
+AC_SUBST(UDNS_LIBS, [-ludns])
 
 AC_CONFIG_HEADER(config.h)
 AC_OUTPUT(Makefile mod_defensible.h) 
