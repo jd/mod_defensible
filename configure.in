@@ -10,26 +10,7 @@ AC_PROG_CC
 AM_PROG_LIBTOOL
 
 # check for apxs tool 
-AC_MSG_CHECKING(for APXS tool) 
-with_apxs=/usr/bin/apxs2
-AC_ARG_WITH(apxs, 
-        [  --with-apxs=path        path to the apxs command],
-        ,
-        with_apxs=no 
-) 
-if test "${with_apxs}" = no; then 
-        AC_MSG_ERROR(Must specify path to apxs command with --with-apxs) 
-else 
-        if test -x ${with_apxs} 
-        then 
-                AC_MSG_RESULT(using ${with_apxs}) 
-        else 
-                AC_MSG_ERROR(apxs command not found) 
-        fi 
-fi 
-APXS=${with_apxs} 
-AC_SUBST(APXS) 
-
+AC_PATH_PROG(APXS2, [apxs2])
 
 AC_ARG_WITH(udns, 
         [  --with-udns             use udns library to resolve (better performance)],
