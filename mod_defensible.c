@@ -116,12 +116,12 @@ static const char *set_dnsbl_server(cmd_parms *parms,
 /* Configuration directive declaration for our module */
 static const command_rec defensible_cmds[] =
 {
-    AP_INIT_TAKE1("DnsblUse", use_dnsbl, NULL, RSRC_CONF,
+    AP_INIT_TAKE1("DnsblUse", use_dnsbl, NULL, RSRC_CONF|ACCESS_CONF|OR_LIMIT,
                   "Set to 'On' to use DNSBL"),
-    AP_INIT_ITERATE("DnsblServers", set_dnsbl_server, NULL, RSRC_CONF,
+    AP_INIT_ITERATE("DnsblServers", set_dnsbl_server, NULL, RSRC_CONF|ACCESS_CONF|OR_LIMIT,
                      "DNS suffix to use for lookup in DNSBL server"),
 #ifdef HAVE_LIBUDNS
-    AP_INIT_TAKE1("DnsblNameserver", set_dnsbl_nameserver, NULL, RSRC_CONF,
+    AP_INIT_TAKE1("DnsblNameserver", set_dnsbl_nameserver, NULL, RSRC_CONF|ACCESS_CONF|OR_LIMIT,
                   "IP address of the nameserver to use for DNSBL lookup"),
 #endif
     {NULL, {NULL}, NULL, 0, RAW_ARGS, NULL}

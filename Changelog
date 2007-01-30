@@ -1,5 +1,6 @@
 1.2 --
     * Enhance autoconf stuff, thanks to Loic Minier !
+    * Add support for <Limit> and <Location> blocks
 
 1.1 -- Fri, 19 Jan 2007 15:52:07 +0100
     * Return a custom and informative page on Forbidden
