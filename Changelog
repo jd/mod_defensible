@@ -1,4 +1,4 @@
-1.2 --
+1.2 -- Thu,  1 Feb 2007 15:53:42 +0100
     * Enhance autoconf stuff, thanks to Loic Minier !
     * Add support for <Limit> and <Location> blocks
 
