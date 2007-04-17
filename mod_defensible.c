@@ -219,7 +219,7 @@ static int check_dnsbl_access(request_rec *r)
     data_array = apr_array_make(r->pool, 1, sizeof(struct udns_cb_data *)); 
 
     /* Initialize udns lib */
-    if(dns_init(0) < 0)
+    if(dns_init(&dns_defctx, 0) < 0)
     {
         ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
                       "error initializing udns library for DNSBL, can't check client");
