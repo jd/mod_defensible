@@ -357,7 +357,6 @@ static int check_dnsbl_access(request_rec *r)
             dns_ioevent(0, 0);
 
     dns_close(&dns_defctx);
-    dns_free(&dns_defctx);
 
     /* Check if one of the DNSBL server has blacklisted */
     for(i = 0; i < data_array->nelts; i++)
