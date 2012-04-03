@@ -1,3 +1,6 @@
+1.5 -- Tue, 03 Apr 2012 15:46:56 +0200
+    * Upgrade for Apache 2.4
+
 1.4 -- Mon, 24 Sep 2007 20:53:19 +0200
     * Don't dns_free(), bug introduced with udns 0.0.9
 
