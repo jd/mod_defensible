@@ -187,7 +187,7 @@ static void generate_page(request_rec *r, char * dnsbl)
     ap_rprintf(r, "<p>You don't have permission to access %s\n", ap_escape_html(r->pool, r->uri));
     ap_rprintf(r, "on this server because you are currently blacklisted by a DNSBL server at: <b>%s</b></p>\n", dnsbl);
     ap_rputs("<hr>\n", r);
-    ap_rprintf(r, "<address>%s</address>\n", ap_get_server_version());
+    ap_rprintf(r, "<address>%s</address>\n", ap_get_server_banner());
     ap_rputs("</body></html>\n", r);
 }
 
