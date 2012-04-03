@@ -4,12 +4,12 @@
 AC_INIT(mod_defensible)
 AM_INIT_AUTOMAKE(mod_defensible, 1.2)
 
-AC_CONFIG_SRCDIR(mod_defensible.c) 
+AC_CONFIG_SRCDIR(mod_defensible.c)
 
 AC_PROG_CC
 AM_PROG_LIBTOOL
 
-# check for apxs tool 
+# check for apxs tool
 AC_PATH_PROG(APXS2, [apxs2])
 
 AC_ARG_WITH(udns,
