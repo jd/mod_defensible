@@ -198,7 +198,7 @@ static void generate_page(request_rec *r, char * dnsbl)
 static int check_dnsbl_access(request_rec *r)
 {
     char **srv_elts;
-    char *ip = r->connection->remote_ip;
+    char *ip = r->useragent_ip;
     int i;
 
     dnsbl_config *conf = (dnsbl_config *)
