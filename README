@@ -11,6 +11,9 @@ in DNSBL.
 It will do DNS lookups to DNSBL you want and will return a 403 Forbidden
 error code to the client.
 
+You can use './configure --with-udns` to enable udns
+(http://www.corpit.ru/mjt/udns.html) usage, which should be faster.
+
 Configuration example:
 
 DnsblUse On
